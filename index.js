@@ -1,4 +1,3 @@
-
 import { readFileSync, writeFileSync } from 'node:fs';
 // import { readFileSync } from 'node:fs';
 // const http = require('node:http');
@@ -10,6 +9,10 @@ import { readFile, writeFile } from 'node:fs';
 // import path from 'path';
 // const __dirname = path.resolve();
 const __dirname = import.meta.dirname;
+// const replaceTemplate =require('./modules/replaceTemplate')
+
+import replaceTemplate from './modules/replaceTemplate.js';
+import slugify from 'slugify';
 
 //////////////////////////////////
 // FILES
@@ -39,9 +42,9 @@ const __dirname = import.meta.dirname;
 //             writeFile('./txt/final.txt', `${data2}\n${data3}`,'utf8', err => {
 // console.log('your file has been written')
 //             });//since we're writing, only the error argument is required, since no data is read
-            
+
 //             });
-        
+
 //         });
 //         // console.log(data1);
 
@@ -52,44 +55,79 @@ const __dirname = import.meta.dirname;
 /////////////////////////////////////////////////////////////
 //  SERVER
 
+const tempOverview = readFileSync(
+  `${__dirname}/templates/template-overview.html`,
+  'utf8'
+);
+const tempCard = readFileSync(
+  `${__dirname}/templates/template-card.html`,
+  'utf8'
+);
+const tempProduct = readFileSync(
+  `${__dirname}/templates/template-product.html`,
+  'utf8'
+);
 const data = readFileSync(`${__dirname}/dev-data/data.json`, 'utf8');
 
-    const dataObj = JSON.parse(data);
-              
-          
-//creating an http server
-const server = http.createServer((req, res) =>{
-    // console.log(req);
-    // console.log(req.url);
-    const pathName = req.url;
-    if(pathName === '/' || pathName === '/overview'){
-        res.end('this is the OVERVIEW');
-    }   
-    else if(pathName === '/product'){
-        res.end('this is PRODUCT');
-    } else if(pathName === '/api'){
+const dataObj = JSON.parse(data);
+const slugs = dataObj.map((el) => slugify(el.productName, { lower: true }));
+console.log(slugs);
 
-//         readFile(`${__dirname}/dev-data/data.json`, 'utf8', (err, data)=>{
-// const productData= JSON.parse(data);
-            // console.log(productData);
-            res.writeHead(200, {'Content-type': 'application/json'});
-            res.end(data);
-        // }
+//creating an http server
+const server = http.createServer((req, res) => {
+  // console.log(req);
+  // console.log(req.url);
+  // console.log(url.parse(req.url, true));
+  const { query, pathname } = url.parse(req.url, true);
+
+  // const pathname = req.url;
+
+  //overview page
+  if (pathname === '/' || pathname === '/overview') {
+    res.writeHead(200, { 'Content-type': 'text/html' });
+
+    const cardHtml = dataObj
+      .map((el) => replaceTemplate(tempCard, el))
+      .join('');
+    const output = tempOverview.replace('{%PRODUCT_CARDS%}', cardHtml);
+    // console.log(cardHtml);
+
+    res.end(output);
+  }
+  //product name
+  else if (pathname === '/product') {
+    // console.log(query);
+    res.writeHead(200, { 'Content-type': 'text/html' });
+    const product = dataObj[query.id];
+    const output = replaceTemplate(tempProduct, product);
+    res.end(output);
+    // res.end('this is PRODUCT');
+
+    //API
+  } else if (pathname === '/api') {
+    //         readFile(`${__dirname}/dev-data/data.json`, 'utf8', (err, data)=>{
+    // const productData= JSON.parse(data);
+    // console.log(productData);
+    res.writeHead(200, { 'Content-type': 'application/json' });
+    res.end(data);
+    // }
     // );
 
-        // res.end('API');
-    }
-    else{
-        res.writeHead(404, {
-             'content-type': 'text/html',
-             'my-own-body': 'hello-world '
-        });
-        res.end('<h1>Page not found</h1>');
-    }
+    // res.end('API');
+  }
 
-    // res.end('Hello from the server');
+  //not found
+  else {
+    res.writeHead(404, {
+      'content-type': 'text/html',
+      'my-own-body': 'hello-world ',
+    });
+    res.end('<h1>Page not found</h1>');
+  }
+
+  // res.end('Hello from the server');
 });
 
-server.listen(8000, '127.0.0.1', ()=>{
-    console.log('Listening to requests on port 8000');
+server.listen(8000, '127.0.0.1', () => {
+  console.log('Listening to requests on port 8000');
 });
